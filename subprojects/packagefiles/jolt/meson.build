@@ -1,8 +1,8 @@
 project('jolt', 'cpp',
 	license : 'MIT',
-	license_files : 'LICENSE',
+	license_files : [ 'LICENSE' ],
 	version : '5.0.0',
-	meson_version : '>=0.5.0',
+	meson_version : '>=1.1.0',
     default_options : [
         'cpp_std=c++17'
     ]
