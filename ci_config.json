@@ -1235,6 +1235,14 @@
       "libjack-dev"
     ]
   },
+  "s2n-tls": {
+    "build_on": {
+      "windows": false
+    },
+    "alpine_packages": [
+      "openssl-dev"
+    ]
+  },
   "sdl3": {
     "alpine_packages": [
       "libudev-zero-dev",
