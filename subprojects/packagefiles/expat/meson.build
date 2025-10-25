@@ -23,9 +23,11 @@ project(
   'expat',
   'c',
   license: 'MIT',
-  version: '2.7.1',
-  meson_version: '>= 0.54.1',
+  version: '2.7.3',
+  meson_version: '>= 0.58',
 )
+
+dllver = '1.11.1'
 
 config = configuration_data()
 cc = meson.get_compiler('c')
@@ -66,6 +68,7 @@ else
   )
 endif
 
+config.set('XML_ATTR_INFO', get_option('xml_attr_info'))
 config.set('XML_DTD', get_option('xml_dtd'))
 config.set10('XML_GE', get_option('xml_ge'))
 config.set('XML_NS', get_option('xml_ns'))
@@ -164,6 +167,15 @@ if host_machine.system() == 'windows'
     )
     expat_static_args += '-DXML_STATIC'
   endif
+
+  vard = configuration_data()
+  vard.set('PROJECT_VERSION', meson.project_version())
+  verf = configure_file(
+    configuration: vard,
+    format: 'cmake',
+    input: 'win32/version.rc.cmake',
+    output: 'version.rc',
+  )
 else
   add_project_arguments(
     '-DXMLIMPORT=__attribute__ ((visibility("default")))',
@@ -177,17 +189,45 @@ else
   endif
 endif
 
+defs = configuration_data()
+if get_option('xml_dtd') or get_option('xml_ge')
+  defs.set('_EXPAT_COMMENT_DTD_OR_GE', ' ')
+else
+  defs.set('_EXPAT_COMMENT_DTD_OR_GE', ';')
+endif
+if get_option('xml_attr_info')
+  defs.set('_EXPAT_COMMENT_ATTR_INFO', ' ')
+else
+  defs.set('_EXPAT_COMMENT_ATTR_INFO', ';')
+endif
+dfile = configure_file(
+  configuration: defs,
+  format: 'cmake@',
+  input: 'lib/libexpat.def.cmake',
+  output: 'libexpat.def',
+)
+
 incdir = include_directories('lib')
+
+sources = files('lib/xmlparse.c', 'lib/xmlrole.c', 'lib/xmltok.c')
+
+if host_machine.system() == 'windows'
+  sources += import('windows').compile_resources(
+    verf,
+    args: '-DVER_FILEVERSION=@0@,0'.format(
+      meson.project_version().replace('.', ','),
+    ),
+  )
+endif
 
 libexpat = library(
   'expat',
-  'lib/xmlparse.c',
-  'lib/xmlrole.c',
-  'lib/xmltok.c',
+  sources,
   include_directories: incdir,
   dependencies: dep_libbsd,
-  version: '1.10.2',
+  version: dllver,
   soversion: host_machine.system() != 'windows' ? '1' : '',
+  vs_module_defs: dfile,
   install: true,
   gnu_symbol_visibility: 'hidden',
 )

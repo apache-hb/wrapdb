@@ -3,13 +3,14 @@ project(
   'c',
   'cpp',
   version: '77.1',
+  license: 'BSD-2-Clause AND BSD-3-Clause AND ICU AND NAIST-2003 AND Unicode-3.0',
   meson_version: '>=0.57.0',
   default_options: 'cpp_std=c++17',
 )
 
 U_ICU_VERSION = meson.project_version()
 PACKAGE_ICU_DESCRIPTION = 'International Components for Unicode'
-PACKAGE_ICU_URL = 'http://icu-project.org'
+PACKAGE_ICU_URL = 'https://icu.unicode.org/'
 
 cpp = meson.get_compiler('cpp')
 cpp_native = meson.get_compiler(

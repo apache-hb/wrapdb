@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,22 +29,22 @@ import sys
 import shutil
 
 from pathlib import Path
-from utils import Version, ci_group, is_ci, is_alpinelike, is_debianlike, is_macos, is_windows, is_msys
+from utils import CIConfig, ProjectCIConfig, Releases, Version, ci_group, is_ci, is_alpinelike, is_debianlike, is_macos, is_windows, is_msys, read_wrap, FormattingError, format_meson, format_wrap
 
-PERMITTED_FILES = ['generator.sh', 'meson.build', 'meson_options.txt', 'meson.options', 'LICENSE.build']
-PER_PROJECT_PERMITTED_FILES = {
-    'box2d': [
+PERMITTED_FILES = {'generator.sh', 'meson.build', 'meson_options.txt', 'meson.options', 'LICENSE.build'}
+PER_PROJECT_PERMITTED_FILES: dict[str, set[str]] = {
+    'box2d': {
         'doctest.h'
-    ],
-    'bzip2': [
+    },
+    'bzip2': {
         'test.py',
-    ],
-    'curl': [
+    },
+    'curl': {
         'buildinfo.txt.meson',
         'extract.mk',
         'rewrite.mk',
-    ],
-    'glbinding': [
+    },
+    'glbinding': {
         'pch.h',
         'glbinding_api.h',
         'glbinding_features.h',
@@ -52,36 +52,66 @@ PER_PROJECT_PERMITTED_FILES = {
         'glbinding-aux_api.h',
         'glbinding-aux_features.h',
         'glbinding-aux_export.h'
-    ],
-    'godot-cpp' : [
+    },
+    'godot-cpp' : {
          'meson-bindings-generator.py',
-     ],
-    'gumbo-parser': [
+     },
+    'gumbo-parser': {
         'tokenizer.cc',
-    ],
-    'icu': [
+    },
+    'icu': {
         'export_module.py'
-    ],
-    'lame': [
+    },
+    'lame': {
         'fix_def.py',
         'sym2ver.py',
-    ],
-    'libexif': [
+    },
+    'leptonica': {
+        '_skipped_test.c',
+    },
+    'libcap': {
+        'gen_cap_names.py',
+    },
+    'libexif': {
         'def.py',
-    ],
-    'libgrapheme': [
+    },
+    'libffi': {
+        'test-cc-supports-hidden-visibility.py',
+        'test-ro-eh-frame.py',
+        'test-cc-uses-zarch.py',
+        'test-unwind-section.py',
+        'extract-libtool-version.py',
+    },
+    'libgrapheme': {
         'chdir_wrapper.py',
-    ],
-    'm4': [
+    },
+    'libuv': {
+        'link_file_in_build_dir.py',
+    },
+    'luajit': {
+        'unwind_check.sh',
+    },
+    'm4': {
         'm4_test_runner.py',
-    ],
-    'mpdecimal': [
+    },
+    'mpdecimal': {
         'gettests.py',
-    ],
-    'nowide': [
+    },
+    'nowide': {
         'test_iostream_interactive.py',
-    ],
-    'openssl': [
+    },
+    'openal-soft': {
+        'hexify.py'
+    },
+    'openblas': {
+        'gen_install_headers.py',
+        'prepare_config_last.py',
+        'read_config.py',
+        'write_to_file.py',
+        'test_runner.c',
+        'run_fortran.c',
+    },
+    'openssl': {
         'bn_conf.h',
         'dso_conf.h',
         'buildinf.h',
@@ -89,110 +119,57 @@ PER_PROJECT_PERMITTED_FILES = {
         'generate_gypi.pl.patch',
         'meson.build.tmpl',
         'README.md',
-    ],
-    'openal-soft': [
-        'hexify.py'
-    ],
-    'openblas': [
-        'gen_install_headers.py',
-        'prepare_config_last.py',
-        'read_config.py',
-        'write_to_file.py',
-        'test_runner.c',
-        'run_fortran.c',
-    ],
-    'pcre': [
+    },
+    'pcre': {
         'pcre.def',
         'pcreposix.def'
-    ],
-    'protobuf': [
-        'symlink.py',
-    ],
-    'sdl2': [
+    },
+    'protobuf': {
+        'symlink_or_copy.py',
+    },
+    'sdl2': {
         'find-dylib-name.py'
-    ],
-    'soundtouch': [
+    },
+    'soundtouch': {
         'afxres.h'
-    ],
-    'taglib': [
+    },
+    'taglib': {
         'checked.h'
-    ],
-    'theora': [
+    },
+    'theora': {
         'check-needed-tex-packages.py',
         'latexmk-wrapper.py',
         'test-tex-packages.py',
         'doxyfile-patcher.py',
         'arm2gnu-wrapper.py',
         'generate_windows_rc.py',
-    ],
-    'libcap': [
-        'gen_cap_names.py',
-    ],
-    'libffi': [
-        'test-cc-supports-hidden-visibility.py',
-        'test-ro-eh-frame.py',
-        'test-cc-uses-zarch.py',
-        'test-unwind-section.py',
-        'extract-libtool-version.py',
-    ],
-    'leptonica': [
-        '_skipped_test.c',
-    ],
-    'libuv': [
-        'link_file_in_build_dir.py',
-    ],
-    'luajit': [
-        'unwind_check.sh',
-    ],
-    'vo-aacenc': [
+    },
+    'vo-aacenc': {
         'makedef.py',
         'stddef.h.in',
-    ],
-    'zlib-ng': [
+    },
+    'zlib-ng': {
         'get-version.py',
         'process-zconf.py',
-    ],
+    },
 }
 SOURCE_FILENAME_PREFIXES = {
     'icu': 'icu4c',
     'libtomcrypt': 'crypt',
 }
-FORMAT_CHECK_FILES = ['meson.build', 'meson_options.txt', 'meson.options']
-NO_TABS_FILES = ['meson.build', 'meson_options.txt', 'meson.options']
+MIT_LICENSE_BLOCKS = {'expat', 'freeglut', 'glew', 'google-brotli'}
+FORMAT_CHECK_FILES = {'meson.build', 'meson_options.txt', 'meson.options'}
+SUBPROJECTS_METADATA_FILES = {'subprojects/.gitignore'}
 PERMITTED_KEYS = {'versions', 'dependency_names', 'program_names'}
 IGNORE_SETUP_WARNINGS = None  # or re.compile(r'something')
 
 
-if T.TYPE_CHECKING:
-    class CiConfigProject(T.TypedDict, total=False):
-        build_options: list[str]
-        build_on: dict[str, bool]
-        alpine_packages: list[str]
-        brew_packages: list[str]
-        choco_packages: list[str]
-        debian_packages: list[str]
-        msys_packages: list[str]
-        python_packages: list[str]
-        fatal_warnings: bool
-        skip_dependency_check: list[str]
-        skip_program_check: list[str]
-        test_options: list[str]
-        skip_tests: bool
-
-
-    class ReleasesProject(T.TypedDict, total=False):
-        dependency_names: list[str]
-        program_names: list[str]
-        versions: T.Required[list[str]]
-
-
 class TestReleases(unittest.TestCase):
-    # requires casts for special keys e.g. broken_*
-    ci_config: dict[str, CiConfigProject]
+    ci_config: CIConfig
     fatal_warnings: bool
     annotate_context: bool
     skip_build: bool
-    releases: dict[str, ReleasesProject]
+    releases: Releases
     skip: list[str]
     tags: set[str]
     timeout_multiplier: float
@@ -215,17 +192,11 @@ class TestReleases(unittest.TestCase):
             print(f'Ignoring unreachable tags: {stdout.decode().splitlines()}')
 
         try:
-            fn = 'releases.json'
-            with open(fn, 'r', encoding='utf-8') as f:
-                cls.releases = json.load(f)
-            fn = 'ci_config.json'
-            with open(fn, 'r', encoding='utf-8') as f:
-                cls.ci_config = json.load(f)
-        except json.decoder.JSONDecodeError:
-            raise RuntimeError(f'file {fn} is malformed')
+            cls.releases = Releases.load()
+            cls.ci_config = CIConfig.load()
+        except json.decoder.JSONDecodeError as ex:
+            raise RuntimeError('metadata is malformed') from ex
 
-        system = platform.system().lower()
-        cls.skip = T.cast(T.List[str], cls.ci_config[f'broken_{system}'])
         cls.fatal_warnings = os.environ.get('TEST_FATAL_WARNINGS', 'yes') == 'yes'
         cls.annotate_context = os.environ.get('TEST_ANNOTATE_CONTEXT') == 'yes'
         cls.skip_build = os.environ.get('TEST_SKIP_BUILD') == 'yes'
@@ -241,12 +212,14 @@ class TestReleases(unittest.TestCase):
             self.assertIn(name, self.releases)
             self.assertIn(version, self.releases[name]['versions'], f'for {name}')
 
-        # Verify keys are sorted
-        self.assertEqual(sorted(self.releases.keys()), list(self.releases.keys()))
-
         for name, info in self.releases.items():
             for k in info.keys():
                 self.assertIn(k, PERMITTED_KEYS)
+
+        try:
+            Releases.format(check=True)
+        except FormattingError:
+            self.fail('releases.json is not formatted.  Run tools/format.py to format it.')
 
     def get_patch_path(self, wrap_section):
         patch_directory = wrap_section.get('patch_directory')
@@ -254,6 +227,15 @@ class TestReleases(unittest.TestCase):
             return Path('subprojects', 'packagefiles', patch_directory)
 
         return None
+
+    def ensure_source_dir(self, name: str, wrap: configparser.ConfigParser) -> Path:
+        dir = Path('subprojects', wrap['wrap-file']['directory'])
+        if not dir.exists():
+            # build has not run and unpacked the source; do that
+            subprocess.check_call(
+                ['meson', 'subprojects', 'download', name]
+            )
+        return dir
 
     def check_meson_version(self, name: str, version: str, patch_path: str | None, builddir: str = '_build') -> None:
         with self.subTest(step="check_meson_version"):
@@ -265,6 +247,12 @@ class TestReleases(unittest.TestCase):
                     subproject, = [subproj for subproj in project_info["subprojects"] if subproj["name"] == name]
                     if subproject['version'] != 'undefined' and patch_path:
                         self.assertEqual(subproject['version'], version)
+
+    def get_transitional_provides(self, wrap: configparser.ConfigParser) -> set[str]:
+        if 'provide' not in wrap.sections():
+            return set()
+        keys = set(k.strip() for k in wrap['provide'])
+        return keys - {'dependency_names', 'program_names'}
 
     def test_releases(self) -> None:
         has_new_releases = False
@@ -278,8 +266,7 @@ class TestReleases(unittest.TestCase):
                 extra_checks = latest_tag not in self.tags
 
                 # Make sure we can load wrap file
-                config = configparser.ConfigParser(interpolation=None)
-                config.read(f'subprojects/{name}.wrap', encoding='utf-8')
+                config = read_wrap(name)
 
                 # Basic checks
                 with self.subTest(step='basic'):
@@ -306,7 +293,9 @@ class TestReleases(unittest.TestCase):
                 if patch_path:
                     with self.subTest(step='patch_directory'):
                         self.assertTrue(patch_path.is_dir())
-                        # FIXME: Not all wraps currently complies, only check for wraps we modify.
+                        # Don't recheck unchanged projects that may have
+                        # been formatted with an older Meson.  Also, format
+                        # checks are slow.
                         if extra_checks:
                             self.check_files(name, patch_path)
 
@@ -317,14 +306,20 @@ class TestReleases(unittest.TestCase):
                     if 'provide' in config.sections():
                         provide = config['provide']
                         progs = [i.strip() for i in provide.get('program_names', '').split(',')]
-                        deps = [i.strip() for i in provide.get('dependency_names', '').split(',')]
-                        for k in provide:
-                            if k not in {'dependency_names', 'program_names'}:
-                                deps.append(k.strip())
+                        deps = (
+                            [i.strip() for i in provide.get('dependency_names', '').split(',')] +
+                            list(self.get_transitional_provides(config))
+                        )
                     progs = [i for i in progs if i]
                     deps = [i for i in deps if i]
                     self.assertEqual(sorted(progs), sorted(info.get('program_names', [])))
                     self.assertEqual(sorted(deps), sorted(info.get('dependency_names', [])))
+
+                # Downstream ports shouldn't use transitional provides syntax
+                # FIXME: Not all wraps currently comply, only check for wraps we modify.
+                if extra_checks and patch_path:
+                    with self.subTest(step="Ports must not use 'foo = foo_dep' provide syntax; use meson.override_dependency('foo', foo_dep) and 'dependency_names = foo'.  https://mesonbuild.com/Adding-new-projects-to-wrapdb.html#overriding-dependencies-in-the-submitted-project"):
+                        self.assertEqual(self.get_transitional_provides(config), set())
 
                 # Verify versions are sorted
                 with self.subTest(step='sorted versions'):
@@ -351,10 +346,12 @@ class TestReleases(unittest.TestCase):
                             if not self.skip_build:
                                 self.check_new_release(name, deps=deps, progs=progs)
                                 with self.subTest(f'If this works now, please remove it from broken_{platform.system().lower()}!'):
-                                    self.assertNotIn(name, self.skip)
+                                    self.assertNotIn(name, self.ci_config.broken)
                                 self.check_meson_version(name, ver, patch_path)
                         if patch_path:
-                            self.check_project_args(name, Path('subprojects') / wrap_section['directory'])
+                            self.check_project_args(name, config)
+                        else:
+                            self.check_nonport_source(name, config)
                     else:
                         with self.subTest(step='version is tagged'):
                             self.assertIn(t, self.tags)
@@ -363,7 +360,7 @@ class TestReleases(unittest.TestCase):
             if not has_new_releases:
                 last_tag = subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0'], text=True, encoding='utf-8').strip()
                 changed_files = subprocess.check_output(['git', 'diff', '--name-only', 'HEAD', last_tag], text=True, encoding='utf-8').splitlines()
-                if any(f.startswith('subprojects') for f in changed_files):
+                if any(f.startswith('subprojects') and f not in SUBPROJECTS_METADATA_FILES for f in changed_files):
                     self.fail('Subprojects files changed but no new release added into releases.json')
 
     @unittest.skipUnless('TEST_BUILD_ALL' in os.environ, 'Run manually only')
@@ -373,7 +370,7 @@ class TestReleases(unittest.TestCase):
         failed = []
         errored = []
         for name, info in self.releases.items():
-            if name in self.skip:
+            if name in self.ci_config.broken:
                 skipped.append(name)
                 continue
             try:
@@ -420,6 +417,9 @@ class TestReleases(unittest.TestCase):
         self.fail(f'Stem of source_filename "{filename}" isn\'t "{directory}", "{directory}-{version}", or "{name}-{version}". If upstream specifies a filename, use that, and update SOURCE_FILENAME_PREFIXES if necessary to allow it. If using an autogenerated Git archive (e.g. from GitHub), select whichever of the listed names is most legible and add the appropriate file extension(s).')
 
     def check_source_url(self, name: str, wrap_section: configparser.SectionProxy, version: str) -> None:
+        source_url = wrap_section['source_url']
+        self.assertNotIn('ftp.gnu.org', source_url, 'use ftpmirror.gnu.org instead')
+
         if name == 'sqlite3':
             segs = version.split('.')
             assert len(segs) == 3
@@ -439,11 +439,9 @@ class TestReleases(unittest.TestCase):
             # DirectXMath source url contains only tag name without version
             # LuaJIT source URL does not contain the version number.
             return
-        source_url = wrap_section['source_url']
         version_ = version.replace('.', '_')
         self.assertTrue(version in source_url or version_ in source_url,
                         f'Version {version} not found in {source_url}')
-        return
 
     def log_context(self, name: str) -> None:
         if self.annotate_context and name in self.ci_config:
@@ -473,7 +471,7 @@ class TestReleases(unittest.TestCase):
         fatal_warnings = ci.get('fatal_warnings', expect_working) and self.fatal_warnings
         if fatal_warnings:
             options.append('--fatal-meson-warnings')
-        options += [f'-D{o}' for o in ci.get('build_options', [])]
+        options += self.ci_config.get_option_arguments(name)
         if Path(builddir, 'meson-private', 'cmd_line.txt').exists():
             options.append('--wipe')
         meson_env = self.install_packages(ci)
@@ -556,7 +554,7 @@ class TestReleases(unittest.TestCase):
                 raise
         subprocess.check_call(['meson', 'install', '-C', builddir, '--destdir', 'pkg'])
 
-    def install_packages(self, ci: CiConfigProject) -> dict[str, str]:
+    def install_packages(self, ci: ProjectCIConfig) -> dict[str, str]:
         debian_packages = ci.get('debian_packages', [])
         brew_packages = ci.get('brew_packages', [])
         choco_packages = ci.get('choco_packages', [])
@@ -605,25 +603,8 @@ class TestReleases(unittest.TestCase):
             return True
         return False
 
-    def is_formatted_correctly(self, file: Path) -> bool:
-        res = subprocess.run(
-            [
-                "meson",
-                "format",
-                "--check-only",
-                "--configuration",
-                "./meson.format",
-                file.absolute(),
-            ]
-        )
-        return res.returncode == 0
-
-    def check_project_args(self, name: str, dir: Path) -> None:
-        if not dir.exists():
-            # build has not run and unpacked the source; do that
-            subprocess.check_call(
-                ['meson', 'subprojects', 'download', name]
-            )
+    def check_project_args(self, name: str, wrap: configparser.ConfigParser) -> None:
+        dir = self.ensure_source_dir(name, wrap)
         try:
             project_json = subprocess.check_output(
                 ['meson', 'rewrite', 'kwargs', 'info', 'project', '/'],
@@ -666,6 +647,17 @@ class TestReleases(unittest.TestCase):
                             'unity'}:
                     raise Exception(f'{name} is not permitted in default_options')
 
+    def check_nonport_source(self, name: str, wrap: configparser.ConfigParser) -> None:
+        with self.subTest(step='check for meson.override_dependency()'):
+            provides = self.get_transitional_provides(wrap)
+            if provides:
+                dir = self.ensure_source_dir(name, wrap)
+                for path in dir.rglob('meson.build'):
+                    if 'meson.override_dependency' in path.read_text(encoding='utf-8'):
+                        # assume if an upstream converts to
+                        # override_dependency it converts completely
+                        raise Exception(f"{path.relative_to(dir)} contains meson.override_dependency(); wrap provides should be converted to e.g. 'dependency_names = {', '.join(sorted(provides))}'")
+
     def get_default_options(self, project: dict[str, T.Any]) -> dict[str, str | None]:
         opts = project.get('default_options')
         if not opts:
@@ -677,29 +669,43 @@ class TestReleases(unittest.TestCase):
         return dict(opt.split('=', 1) for opt in opts if opt is not None)
 
     def check_files(self, subproject: str, patch_path: Path) -> None:
-        tabs: list[Path] = []
         not_permitted: list[Path] = []
-        unformatted: list[Path] = []
+        check_format: list[Path] = []
+        license_blocks: list[Path] = []
         for f in patch_path.rglob('*'):
             if f.is_dir():
                 continue
-            if f.name in FORMAT_CHECK_FILES and not self.is_formatted_correctly(f):
-                unformatted.append(f)
+            if f.name in FORMAT_CHECK_FILES:
+                check_format.append(f)
             if not self.is_permitted_file(subproject, f.name):
                 not_permitted.append(f)
-            elif f.name in NO_TABS_FILES and '\t' in f.read_text(encoding='utf-8'):
-                tabs.append(f)
-        if tabs:
-            tabs_str = ', '.join([str(f) for f in tabs])
-            self.fail(f'Tabs in meson files are not allowed: {tabs_str}')
+            if self.has_license_block(f):
+                license_blocks.append(f)
         if not_permitted:
             not_permitted_str = ', '.join([str(f) for f in not_permitted])
             self.fail(f'Not permitted files found: {not_permitted_str}')
-        if unformatted:
-            unformatted_str = ', '.join([str(f) for f in unformatted])
-            self.fail(
-                f'''Not formatted files found: {unformatted_str}
-Run tools/format.py to format these files.''')
+        try:
+            format_meson(check_format, check=True)
+            format_wrap(subproject, check=True)
+        except FormattingError:
+            self.fail('Unformatted files found.  Run tools/format.py to format these files.')
+        if license_blocks and subproject not in MIT_LICENSE_BLOCKS and not (patch_path / 'LICENSE.build').exists():
+            license_blocks_str = ', '.join(str(f) for f in license_blocks)
+            self.fail(f"Found files {license_blocks_str} with license headers in a project without a LICENSE.build.  The LICENSE.build file in the patch ZIP defaults to MIT unless the patch directory has its own LICENSE.build, which should state the license for the wrap's build files.")
+
+    def has_license_block(self, path: Path) -> bool:
+        for line in path.read_text(encoding='utf-8').splitlines():
+            lower = line.strip().lower()
+            if lower and not lower.startswith('#'):
+                # first non-comment line
+                return False
+            if 'spdx-license-identifier:' in lower:
+                # allow pure MIT, matching the repo default
+                if not lower.endswith('spdx-license-identifier: mit'):
+                    return True
+            elif 'license' in lower:
+                return True
+        return False
 
     @unittest.skipUnless('TEST_MESON_VERSION_DEPS' in os.environ, 'Run manually only')
     def test_meson_version_deps(self) -> None:
@@ -709,8 +715,7 @@ Run tools/format.py to format these files.''')
                     self.report_meson_version_deps(name)
 
     def report_meson_version_deps(self, name: str, builddir: str = '_build') -> None:
-        wrap = configparser.ConfigParser(interpolation=None)
-        wrap.read(f'subprojects/{name}.wrap', encoding='utf-8')
+        wrap = read_wrap(name)
         patch_dir = self.get_patch_path(wrap['wrap-file'])
         if not patch_dir:
             # only check projects maintained downstream
@@ -745,14 +750,11 @@ Run tools/format.py to format these files.''')
         if Path(builddir).exists():
             shutil.rmtree(builddir)
         # ensure we have an unpacked source tree
-        subprocess.check_call(
-            ['meson', 'subprojects', 'download', name]
-        )
+        source_dir = self.ensure_source_dir(name, wrap)
         # install packages and set PATH
         ci = self.ci_config.get(name, {})
         meson_env = self.install_packages(ci)
 
-        source_dir = Path('subprojects', wrap['wrap-file']['directory'])
         source_meson_file = source_dir / 'meson.build'
         source_meson_contents = source_meson_file.read_bytes()
         try:
@@ -771,7 +773,7 @@ Run tools/format.py to format these files.''')
                 version_request += '.0'
 
         options = ['-Dpython.install_env=auto', f'-Dwraps={name}']
-        options += [f'-D{o}' for o in ci.get('build_options', [])]
+        options += self.ci_config.get_option_arguments(name)
         try:
             subprocess.check_call(
                 ['meson', 'rewrite', 'kwargs', 'set', 'project', '/', 'meson_version', '>=0'],

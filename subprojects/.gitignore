@@ -1,2 +1,4 @@
+/.wraplock
 /*/
 !packagefiles/
+packagefiles/openssl/generated-config

@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,12 +20,9 @@ import zipfile
 import shutil
 from pathlib import Path
 
-def read_wrap(filename: Path):
-    wrap = configparser.ConfigParser(interpolation=None)
-    wrap.read(filename)
-    return wrap[wrap.sections()[0]]
+from utils import read_wrap
 
-def read_archive_files(path: Path, base_path: Path):
+def read_archive_files(path: Path, base_path: Path) -> set[Path]:
     if path.suffix == '.zip':
         with zipfile.ZipFile(path, 'r') as archive:
             archive_files = set(base_path / i for i in archive.namelist())
@@ -36,7 +33,8 @@ def read_archive_files(path: Path, base_path: Path):
 
 if __name__ == '__main__':
     for f in Path('subprojects').glob('*.wrap'):
-        wrap_section = read_wrap(f)
+        wrap = read_wrap(f.stem)
+        wrap_section = wrap[wrap.sections()[0]]
         patch_directory = wrap_section.get('patch_directory')
         if not patch_directory:
             continue
@@ -56,6 +54,8 @@ if __name__ == '__main__':
         shutil.rmtree(packagefiles)
         for src_path in new_files:
             if not src_path.is_file():
+                continue
+            if src_path.name == '.meson-subproject-wrap-hash.txt':
                 continue
             rel_path = src_path.relative_to(directory)
             dst_path = packagefiles / rel_path

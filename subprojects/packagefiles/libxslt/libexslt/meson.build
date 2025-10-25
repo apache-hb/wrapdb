@@ -11,7 +11,6 @@ sources = [
   'strings.c',
   'date.c',
   'saxon.c',
-  'libexslt.h',
   'dynamic.c',
 ]
 
@@ -53,4 +52,4 @@ libexslt_dep = declare_dependency(
   dependencies: libxslt_dep,
 )
 
-meson.override_dependency('exslt', libxslt_dep)
+meson.override_dependency('libexslt', libexslt_dep)

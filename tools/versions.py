@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,19 +16,21 @@
 
 from __future__ import annotations
 from argparse import ArgumentParser, Namespace
-from configparser import ConfigParser
 from functools import cache
 from hashlib import sha256
 from itertools import count
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 import time
-from typing import TypedDict
+import typing as T
 
 import requests
+
+from utils import Releases, read_wrap, wrap_path
 
 WRAP_URL_TEMPLATE = (
     'https://github.com/mesonbuild/wrapdb/blob/master/subprojects/{0}.wrap'
@@ -42,26 +44,20 @@ DEPRECATED_WRAPS = set([
 ])
 
 
-class AnityaPackageList(TypedDict):
+class AnityaPackageList(T.TypedDict):
     items: list[AnityaPackage]
     items_per_page: int
     page: int
     total_items: int
 
 
-class AnityaPackage(TypedDict):
+class AnityaPackage(T.TypedDict):
     distribution: str
     ecosystem: str
     name: str
     project: str
     stable_version: str
     version: str
-
-
-class WrapInfo(TypedDict):
-    versions: list[str]
-    dependency_names: list[str]
-    program_names: list[str]
 
 
 @cache
@@ -94,7 +90,7 @@ def get_upstream_versions() -> dict[str, str]:
         if len(packages['items']) < items_per_page:
             break
 
-    def sub(name, old, new):
+    def sub(name: str, old: str, new: str) -> None:
         if name in versions:
             versions[name] = re.sub(old, new, versions[name])
     sub('icu', '-', '.')
@@ -105,40 +101,28 @@ def get_upstream_versions() -> dict[str, str]:
 
 
 @cache
-def get_releases(commit=None) -> dict[str, WrapInfo]:
-    '''Parse and return releases.json for the specified commit or the working
-    tree.'''
-    if commit is not None:
-        data = subprocess.check_output(
-            ['git', 'cat-file', 'blob', f'{commit}:releases.json'], text=True
-        )
-    else:
-        with open('releases.json') as f:
-            data = f.read()
-    return json.loads(data)
+def get_commit_releases(commit: str) -> Releases:
+    '''Parse and return releases.json for the specified commit.'''
+    data = subprocess.check_output(
+        ['git', 'cat-file', 'blob', f'{commit}:releases.json'], text=True
+    )
+    return Releases(json.loads(data))
 
 
 def get_wrap_versions() -> dict[str, str]:
     '''Return a dict: wrap_name -> wrapdb_version.'''
     return {
         name: info['versions'][0].split('-')[0]
-        for name, info in get_releases().items()
+        for name, info in Releases.load().items()
         if name not in DEPRECATED_WRAPS
     }
-
-
-def get_wrap_contents(name: str) -> ConfigParser:
-    '''Return a ConfigParser loaded with the specified wrap.'''
-    wrap = ConfigParser(interpolation=None)
-    wrap.read(f'subprojects/{name}.wrap', encoding='utf-8')
-    return wrap
 
 
 def get_port_wraps() -> set[str]:
     '''Return the names of wraps that have a patch directory.'''
     ports = set()
-    for name, info in get_releases().items():
-        wrap = get_wrap_contents(name)
+    for name, info in Releases.load().items():
+        wrap = read_wrap(name)
         if wrap.has_option('wrap-file', 'patch_directory'):
             ports.add(name)
     return ports
@@ -148,8 +132,8 @@ def update_wrap(name: str, old_ver: str, new_ver: str) -> None:
     '''Try to update the specified wrap file from old_ver to new_ver.'''
 
     # read wrap file
-    filename = f'subprojects/{name}.wrap'
-    with open(filename) as f:
+    path = wrap_path(name)
+    with path.open(encoding='utf-8') as f:
         lines = f.readlines()
 
     # update versions
@@ -191,21 +175,13 @@ def update_wrap(name: str, old_ver: str, new_ver: str) -> None:
                 break
 
     # write
-    with open(filename, 'w') as f:
+    with path.open('w', encoding='utf-8') as f:
         f.write(''.join(lines))
-
-
-def write_releases(releases: dict[str, WrapInfo]) -> None:
-    '''Write modified releases.json.'''
-    with open('releases.json.new', 'w') as f:
-        json.dump(releases, f, indent=2, sort_keys=True)
-        f.write('\n')
-    os.rename('releases.json.new', 'releases.json')
 
 
 def update_revisions(args: Namespace) -> None:
     # run queries
-    releases = get_releases()
+    releases = Releases.load()
     cur_vers = get_wrap_versions()
 
     # decide what to update
@@ -222,7 +198,7 @@ def update_revisions(args: Namespace) -> None:
         print(f'Updating {name} revision...')
         cur_rev = int(releases[name]['versions'][0].split('-')[1])
         releases[name]['versions'].insert(0, f'{cur_vers[name]}-{cur_rev + 1}')
-    write_releases(releases)
+    releases.save()
 
 
 def do_autoupdate(args: Namespace) -> None:
@@ -231,7 +207,7 @@ def do_autoupdate(args: Namespace) -> None:
         return update_revisions(args)
 
     # run queries
-    releases = get_releases()
+    releases = Releases.load()
     cur_vers = get_wrap_versions()
     upstream_vers = get_upstream_versions()
     ports = get_port_wraps()
@@ -262,7 +238,7 @@ def do_autoupdate(args: Namespace) -> None:
                     print(f'Updating {name}...')
                 update_wrap(name, cur_ver, upstream_ver)
                 releases[name]['versions'].insert(0, f'{upstream_ver}-1')
-                write_releases(releases)
+                releases.save()
         except Exception as e:
             print(e, file=sys.stderr)
             failures += 1
@@ -271,8 +247,8 @@ def do_autoupdate(args: Namespace) -> None:
 
 
 def do_commit(args: Namespace) -> None:
-    old_releases = get_releases('HEAD')
-    new_releases = get_releases()
+    old_releases = get_commit_releases('HEAD')
+    new_releases = Releases.load()
 
     # we don't validate any invariants checked by sanity_checks.py
     changed_wraps = [
@@ -298,10 +274,10 @@ def do_commit(args: Namespace) -> None:
         else:
             raise ValueError("Can't autogenerate commit message; specify -m")
 
-    commit_files = [
-        'ci_config.json', 'releases.json', f'subprojects/{name}.wrap'
+    commit_files: list[str | Path] = [
+        'ci_config.json', 'releases.json', wrap_path(name)
     ]
-    patch_dir = get_wrap_contents(name).get(
+    patch_dir = read_wrap(name).get(
         'wrap-file', 'patch_directory', fallback=None
     )
     if patch_dir:
@@ -309,9 +285,10 @@ def do_commit(args: Namespace) -> None:
 
     # suppress Git summary output and recreate it ourselves so we can also
     # show the diffstat, to confirm we've committed the right files
-    subprocess.check_call(
-        ['git', 'commit', '-m', f'{name}: {args.message}', '-q'] + commit_files
-    )
+    cmd: list[str | Path] = [
+        'git', 'commit', '-m', f'{name}: {args.message}', '-q'
+    ]
+    subprocess.check_call(cmd + commit_files)
     subprocess.check_call(['git', 'log', '-1', '--format=[%h] %s'])
     subprocess.check_call(['git', 'diff', '--stat', 'HEAD^..HEAD'])
 
@@ -381,7 +358,7 @@ def do_list(args: Namespace) -> None:
                     'wrapdb': cur_vers[name],
                     'upstream': upstream_vers.get(name),
                     'port': name in ports,
-                    'source': get_wrap_contents(name).get(
+                    'source': read_wrap(name).get(
                         'wrap-file', 'source_url'
                     )
                 } for name in wraps

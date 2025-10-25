@@ -1,7 +1,7 @@
 project(
   'libffi',
   'c',
-  version: '3.5.1',
+  version: '3.5.2',
   license: 'MIT',
   meson_version: '>= 0.56.0',
   default_options: ['warning_level=1'],
@@ -90,6 +90,7 @@ endforeach
 # Default values
 c_sources = ['ffi.c']
 asm_sources = ['sysv.S']
+private_c_args = []
 masm_args = []
 targetdir = ''
 have_long_double = ''
@@ -135,10 +136,9 @@ elif host_cpu_family == 'frv'
   target = 'FRV'
   asm_sources = ['eabi.S']
 elif (host_cpu_family in ['hppa', 'hppa64'] and host_system in [
-  'linux',
+    'linux',
   'openbsd',
-]) or \
-  (host_cpu_family == 'parisc' and host_system == 'linux')
+  ]) or (host_cpu_family == 'parisc' and host_system == 'linux')
   # FIXME: hppa family is missing in Meson
   target = 'PA_LINUX'
   targetdir = 'pa'
@@ -161,12 +161,11 @@ elif host_cpu_family == 'x86' and host_system in ['freebsd', 'openbsd']
     asm_sources = ['sysv_intel.S']
   endif
 elif (host_cpu_family == 'x86' and host_system in [
-  'cygwin',
+    'cygwin',
   'windows',
   'os2',
   'interix',
-]) or \
-  (host_cpu_family == 'x86_64' and host_system in ['cygwin', 'windows'])
+  ]) or (host_cpu_family == 'x86_64' and host_system in ['cygwin', 'windows'])
   targetdir = 'x86'
   if size_t == 4
     target = 'X86_WIN32'
@@ -242,9 +241,9 @@ elif host_cpu_family == 'metag'
   # FIXME: metag family is missing in Meson
   target = 'METAG'
 elif host_cpu_family in ['mips', 'mips64'] and \
-  (host_system.startswith('irix5.') or host_system.startswith('irix6.') or host_system.startswith(
-  'rtems',
-))
+  (host_system.startswith('irix5.') or
+  host_system.startswith('irix6.') or
+  host_system.startswith('rtems'))
   target = 'MIPS'
   asm_sources = ['o32.S', 'n32.S']
 elif host_cpu_family in ['mips', 'mips64'] and host_system in [
@@ -259,9 +258,15 @@ elif host_cpu_family in ['mips', 'mips64'] and host_system in [
 elif host_cpu_family == 'or1k'
   # FIXME: or1k family is missing in Meson
   target = 'OR1K'
-elif (host_cpu_family in ['ppc', 'ppc64'] and \
-  host_system in ['linux', 'sysv', 'amigaos', 'eabi', 'beos', 'haiku', 'rtems']) or \
-  (host_cpu_family == 'ppc64' and host_system == 'freebsd')
+elif (host_cpu_family in ['ppc', 'ppc64'] and host_system in [
+    'linux',
+  'sysv',
+  'amigaos',
+  'eabi',
+  'beos',
+  'haiku',
+  'rtems',
+  ]) or (host_cpu_family == 'ppc64' and host_system == 'freebsd')
   target = 'POWERPC'
   c_sources = ['ffi.c', 'ffi_sysv.c', 'ffi_linux64.c']
   asm_sources = ['sysv.S', 'ppc_closure.S', 'linux64.S', 'linux64_closure.S']
@@ -315,9 +320,15 @@ elif host_cpu_family == 'vax'
   # FIXME: vax family is missing in Meson
   target = 'VAX'
   asm_sources = ['elfbsd.S']
-elif host_cpu_family == 'wasm32'
-  target = 'wasm32'  # lowercase
+elif host_cpu_family in ['wasm32', 'wasm64']
+  target = host_cpu_family  # lowercase
+  targetdir = 'wasm'
   asm_sources = []
+  if host_cpu_family == 'wasm64'
+    private_c_args += cc.get_supported_arguments(
+      '-sMEMORY64=' + (get_option('wasm64_compat32') ? '2' : '1'),
+    )
+  endif
 elif host_cpu_family == 'xtensa'
   # FIXME: xtensa family is missing in Meson
   target = 'XTENSA'
@@ -435,6 +446,7 @@ if host_cpu_family in ['arm', 'aarch64'] and host_system == 'darwin'
 elif host_system in [
   'android',
   'darwin',
+  'dragonfly',
   'openbsd',
   'freebsd',
   'solaris',

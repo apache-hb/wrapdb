@@ -1,35 +1,32 @@
 project(
   'cppzmq',
   'cpp',
-  version: '4.10.0',
+  version: '4.11.0',
   license: 'MIT',
-  meson_version: '>=0.60.0',
+  meson_version: '>=0.54.0',
 )
 
-libzmq_dep = dependency('libzmq')
+deps = [dependency('libzmq')]
 
 cppzmq_dep = declare_dependency(
   include_directories: include_directories('.'),
-  dependencies: libzmq_dep,
+  dependencies: deps,
 )
+meson.override_dependency('cppzmq', cppzmq_dep)
 
-# install
+# install headers
 install_headers('zmq.hpp', 'zmq_addon.hpp')
-conf_data = configuration_data()
-conf_data.set('CMAKE_INSTALL_PREFIX', get_option('prefix'))
-conf_data.set(
-  'CMAKE_INSTALL_FULL_INCLUDEDIR',
-  get_option('prefix') / get_option('includedir'),
-)
-conf_data.set('PROJECT_NAME', meson.project_name())
-conf_data.set('PROJECT_VERSION', meson.project_version())
-conf_data.set('pkg_config_defines', '')
-configure_file(
-  input: 'cppzmq.pc.in',
-  output: 'cppzmq.pc',
-  configuration: conf_data,
-  install: true,
-  install_tag: 'devel',
+
+# install pkg-config file
+requires = []
+foreach dep : deps
+  requires += dep.name()
+endforeach
+import('pkgconfig').generate(
+  name: meson.project_name(),
+  description: 'C++ binding for libzmq',
+  url: 'https://github.com/zeromq/cppzmq',
+  requires: requires,
   install_dir: get_option('datadir') / 'pkgconfig',
 )
 
@@ -68,10 +65,8 @@ if get_option('examples')
 endif
 
 # unit tests
-# NOTE: update to v3 in https://github.com/zeromq/cppzmq/pull/632 (enable tests in ci_config.json)
 catch2_dep = dependency(
-  'catch2',
-  version: '<3.0.0',
+  'catch2-with-main',
   required: get_option('tests'),
 )
 if catch2_dep.found()

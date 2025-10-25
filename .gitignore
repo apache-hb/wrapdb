@@ -3,5 +3,4 @@ __pycache__
 .vscode
 *~
 
-subprojects/packagecache
-subprojects/packagefiles/openssl/generated-config
+tools/mesonenv
