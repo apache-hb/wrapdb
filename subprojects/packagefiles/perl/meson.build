@@ -3,10 +3,29 @@ project(
   'c',
   version: '5.43.5',
   meson_version: '>=1.5.0',
+  license: 'GPL-1.0-or-later',
 )
 
 cc = meson.get_compiler('c')
 fs = import('fs')
+
+project_c_args = cc.get_supported_arguments(
+  '-Wno-unused-function',
+  '-Wno-unused-variable',
+  '-Wno-format-invalid-specifier',
+  '-Wno-format-extra-args',
+  '-Wno-uninitialized-const-pointer',
+  '-Wno-incompatible-pointer-types-discards-qualifiers',
+  '-Wno-sometimes-uninitialized',
+)
+
+add_project_arguments(
+  project_c_args,
+  language: 'c',
+)
+
+src_root = meson.project_source_root()
+build_root = meson.project_build_root()
 
 has_sigsetjmp = cc.has_function(
   'sigsetjmp',
@@ -52,23 +71,25 @@ cdata.set('U32TYPE', 'unsigned int')
 cdata.set('I64TYPE', 'signed long long')
 cdata.set('U64TYPE', 'unsigned long long')
 
-cdata.set_quoted('IVdf', '%lld')
-cdata.set_quoted('UVuf', '%llu')
-cdata.set_quoted('UVof', '%llo')
-cdata.set_quoted('UVxf', '%llx')
-cdata.set_quoted('UVXf', '%llX')
-cdata.set_quoted('NVef', '%e')
-cdata.set_quoted('NVff', '%f')
-cdata.set_quoted('NVgf', '%g')
+cdata.set_quoted('IVdf', 'PRIdPTR')
 
-cdata.set_quoted('I32df', '%d')
-cdata.set_quoted('U32of', '%o')
-cdata.set_quoted('U32uf', '%u')
-cdata.set_quoted('U32xf', '%x')
-cdata.set_quoted('U32Xf', '%X')
+cdata.set_quoted('UVuf', 'PRIuPTR')
+cdata.set_quoted('UVof', 'PRIoPTR')
+cdata.set_quoted('UVxf', 'PRIxPTR')
+cdata.set_quoted('UVXf', 'PRIXPTR')
 
-cdata.set_quoted('Gid_t_f', '%d')
-cdata.set_quoted('Uid_t_f', '%d')
+cdata.set_quoted('NVef', 'e')
+cdata.set_quoted('NVff', 'f')
+cdata.set_quoted('NVgf', 'g')
+
+cdata.set_quoted('I32df', 'd')
+cdata.set_quoted('U32of', 'o')
+cdata.set_quoted('U32uf', 'u')
+cdata.set_quoted('U32xf', 'x')
+cdata.set_quoted('U32Xf', 'X')
+
+cdata.set_quoted('Gid_t_f', 'd')
+cdata.set_quoted('Uid_t_f', 'd')
 
 ivsize = cc.sizeof(
   'intptr_t',
@@ -146,6 +167,20 @@ cdata.set(
   cc.has_define(
     'LDBL_DIG',
     prefix: '#include <float.h>',
+  ),
+)
+cdata.set(
+  'HAS_VSNPRINTF',
+  cc.has_function(
+    'vsnprintf',
+    prefix: '#include <stdio.h>',
+  ),
+)
+cdata.set(
+  'HAS_SNPRINTF',
+  cc.has_function(
+    'snprintf',
+    prefix: '#include <stdio.h>',
   ),
 )
 
@@ -248,6 +283,22 @@ git_version = configure_file(
   install_dir: get_option('includedir') / 'perl5',
 )
 
+config_sh = configure_file(
+  input: 'config.sh.in',
+  output: 'config.sh',
+  configuration: {
+    'PERL_VERSION': project_version[1].to_int(),
+    'PERL_SUBVERSION': project_version[2].to_int(),
+    'IVTYPE': 'intptr_t',
+    'IVSIZE': ivsize,
+    'OSNAME': host_machine.system(),
+    'PERL_SRC': meson.current_source_dir(),
+    'PERL_LIB': meson.current_source_dir() / 'lib',
+    'PERL_INC': meson.current_source_dir(),
+    'PERL_ARCHLIB': meson.current_build_dir() / 'lib',
+  },
+)
+
 gen_uudmap = executable('generate_uudmap', 'generate_uudmap.c')
 
 uudmap_out = custom_target(
@@ -277,7 +328,6 @@ src = files(
   'locale.c',
   'mathoms.c',
   'mg.c',
-  'miniperlmain.c',
   'mro_core.c',
   'numeric.c',
   'op.c',
@@ -315,13 +365,95 @@ m = cc.find_library(
   required: false,
 )
 
-perl = executable(
+libperl = library(
   'perl',
   src,
   uudmap_out,
   config,
   link_with: libregexec,
   dependencies: [m],
+  install: true,
+)
+
+perl_dep = declare_dependency(
+  link_with: libperl,
+  include_directories: inc,
+)
+
+meson.override_dependency('libperl', perl_dep)
+
+miniperl = executable(
+  'miniperl',
+  'miniperlmain.c',
+  dependencies: [perl_dep],
+)
+
+perlmods = [
+  src_root / 'ext/ExtUtils-Miniperl/lib',
+  src_root / 'cpan/version/lib',
+  src_root / 'cpan/File-Path/lib',
+  src_root / 'lib',
+  src_root / 'dist/Exporter/lib',
+  src_root / 'dist/PathTools',
+  src_root / 'dist/PathTools/lib',
+  src_root / 'dist/constant/lib',
+  src_root / 'dist/Carp/lib',
+  meson.current_build_dir() / 'lib',
+]
+
+subdir('lib')
+subdir('Porting')
+subdir('utils')
+
+fs.copyfile('myconfig.SH', 'myconfig.SH')
+
+config_pm = custom_target(
+  'config_pm',
+  input: 'configpm',
+  output: ['Config.pm', 'Config_heavy.pl', 'Config.pod'],
+  command: [
+    miniperl,
+    '@INPUT@',
+    '--chdir=' + meson.current_build_dir(),
+  ],
+  env: {
+    'PERL5LIB': [
+      src_root / 'lib',
+      src_root / 'dist/Exporter/lib',
+    ],
+  },
+)
+
+subdir('ext/DynaLoader')
+
+perlmods += [
+  fs.parent(config_pm[0].full_path()),
+]
+
+perlmain = custom_target(
+  'perlmain.c',
+  output: 'perlmain.c',
+  command: [
+    miniperl,
+    '-MExtUtils::Miniperl',
+    '-e',
+    'writemain(@ARGV)',
+    'DynaLoader',
+  ],
+  capture: true,
+  env: {
+    'PERL5LIB': perlmods,
+  },
+  depends: [
+    config_pm,
+  ],
+)
+
+perl = executable(
+  'perl',
+  perlmain,
+  link_with: [libdynaloader],
+  dependencies: [perl_dep],
   install: true,
 )
 
