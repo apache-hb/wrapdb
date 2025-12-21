@@ -3518,6 +3518,14 @@
       "3.2.7-1"
     ]
   },
+  "perl": {
+    "program_names": [
+      "perl"
+    ],
+    "versions": [
+      "5.43.5-1"
+    ]
+  },
   "physfs": {
     "dependency_names": [
       "physfs"
