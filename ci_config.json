@@ -93,6 +93,16 @@
       "numactl-dev"
     ]
   },
+  "aws-lc": {
+    "_comment": [
+      "Clear jitterentropy target environments to prevent a circular dependency"
+    ],
+    "build_options": [
+      "aws-lc:tests=enabled",
+      "aws-lc:fips=enabled",
+      "jitterentropy:environments=[]"
+    ]
+  },
   "argtable3": {
     "build_options": [
       "argtable3:examples=true",
