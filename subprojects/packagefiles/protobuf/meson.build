@@ -69,11 +69,16 @@ libutf8_range_src = files(
   'third_party/utf8_range/utf8_validity.cc',
 )
 libutf8_range_args = []
+libutf8_range_cpp_args = []
+if cc.get_argument_syntax() == 'gcc'
+  # utf8_validity.cc uses memcpy without including the standard header.
+  libutf8_range_cpp_args += ['-include', 'cstring']
+endif
 if host_machine.cpu_family() == 'x86_64'
   # range-sse.c is wrapped in #ifdef __x86_64__
   libutf8_range_src += files('third_party/utf8_range/range-sse.c')
   if (meson.get_compiler('cpp').get_argument_syntax() == 'gcc'
-  or meson.get_compiler('cpp').get_id() == 'clang-cl'
+or meson.get_compiler('cpp').get_id() == 'clang-cl'
 )
     libutf8_range_args += '-msse4.1'
   elif meson.get_compiler('cpp').get_argument_syntax() == 'msvc'
@@ -84,6 +89,7 @@ libutf8_range = static_library(
   'utf8-range',
   sources: libutf8_range_src,
   c_args: libutf8_range_args,
+  cpp_args: libutf8_range_cpp_args,
   dependencies: absl_string_view_dep,
 )
 utf8_range_dep = declare_dependency(
@@ -218,8 +224,8 @@ libprotobuf_src = files(
   'src/google/protobuf/wrappers.pb.cc',
 )
 libprotobuf_linker_args = (is_msvc ? [
-    '/export:??$MergeFrom@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@RepeatedPtrFieldBase@internal@protobuf@google@@QEAAXAEBV0123@@Z',
-  ] : []
+  '/export:??$MergeFrom@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@RepeatedPtrFieldBase@internal@protobuf@google@@QEAAXAEBV0123@@Z',
+] : []
 )
 libprotobuf = library(
   'protobuf',
@@ -367,6 +373,10 @@ protoc_dep = declare_dependency(
   dependencies: protobuf_dep,
   link_with: libprotoc,
 )
+
+meson.override_dependency('protobuf', protobuf_dep)
+meson.override_dependency('protobuf-lite', protobuf_lite_dep)
+meson.override_dependency('protoc', protoc_dep)
 
 if should_install
   pkg = import('pkgconfig')

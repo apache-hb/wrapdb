@@ -1,0 +1,9 @@
+[wrap-file]
+directory = riegeli-9f2744dc23e81d84c02f6f51244e9e9bb9802d57
+source_url = https://github.com/google/riegeli/archive/9f2744d.tar.gz
+source_filename = riegeli-0.0.0.20250822.9f2744d.tar.gz
+source_hash = f63337f63f794ba9dc7dd281b20af3d036dfe0c1a5a4b7b8dc20b39f7e323b97
+patch_directory = riegeli
+
+[provide]
+dependency_names = riegeli

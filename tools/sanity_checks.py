@@ -75,6 +75,11 @@ PER_PROJECT_PERMITTED_FILES: dict[str, set[str]] = {
     'godot-cpp' : {
          'meson-bindings-generator.py',
      },
+    'fuzztest': {
+        'meson_memfd_compat.h',
+        'meson_stats_compat.py',
+        'meson_test_wrapper.py',
+    },
     'gumbo-parser': {
         'tokenizer.cc',
     },
@@ -154,6 +159,9 @@ PER_PROJECT_PERMITTED_FILES: dict[str, set[str]] = {
     },
     'protobuf': {
         'symlink_or_copy.py',
+    },
+    'riegeli': {
+        'records_test.cc',
     },
     'sdl2': {
         'find-dylib-name.py'
@@ -487,8 +495,11 @@ class TestReleases(unittest.TestCase):
             segs = version.split('.')
             assert len(segs) == 3
             version = segs[0] + segs[1] + '0' + segs[2]
-        elif name == 're2':
+        elif name in {'fuzztest', 're2'}:
             version = f'{version[:4]}-{version[4:6]}-{version[6:8]}'
+        elif name in {'highwayhash', 'riegeli'}:
+            # These BCR pseudo-releases identify untagged upstream commits.
+            version = version.rsplit('.', 1)[1]
         elif name == 'x-plane-sdk':
             if version in wrap_section['source_url']:
                 # internalize_sources.py replaced the source URL with one

@@ -128,6 +128,11 @@
     ],
     "skip_tests": true
   },
+  "antlr4-cpp-runtime": {
+    "build_options": [
+      "antlr4-cpp-runtime:tests=enabled"
+    ]
+  },
   "blueprint-compiler": {
     "_comment": "Tests require pygobject and Gtk4 typelib, and also they crash",
     "skip_tests": true
@@ -411,6 +416,19 @@
       "windows": false
     }
   },
+  "fuzztest": {
+    "_comment": "FuzzTest does not support Windows",
+    "build_on": {
+      "msys2": false,
+      "windows": false
+    },
+    "build_options": [
+      "fuzztest:tests=enabled"
+    ],
+    "test_options": [
+      "--timeout-multiplier=2"
+    ]
+  },
   "gdbm": {
     "_comment": "- Requires POSIX platform.",
     "build_on": {
@@ -598,6 +616,11 @@
     ],
     "skip_dependency_check": [
       "harfbuzz-cairo"
+    ]
+  },
+  "highwayhash": {
+    "build_options": [
+      "highwayhash:tests=enabled"
     ]
   },
   "hinnant-date": {
@@ -1461,6 +1484,16 @@
   "re2": {
     "build_options": [
       "cpp_std=c++14"
+    ]
+  },
+  "riegeli": {
+    "_comment": "Riegeli does not support Windows",
+    "build_on": {
+      "msys2": false,
+      "windows": false
+    },
+    "build_options": [
+      "riegeli:tests=enabled"
     ]
   },
   "robin-map": {

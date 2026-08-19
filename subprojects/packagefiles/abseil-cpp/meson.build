@@ -1,8 +1,8 @@
 project(
   'abseil-cpp',
   'cpp',
-  meson_version: '>=0.49.0',
-  version: '20250814.1',
+  meson_version: '>=0.56.0',
+  version: '20260526.0',
   license: 'Apache-2.0',
 )
 
@@ -90,9 +90,10 @@ absl_base_sources = files(
   'absl/base/internal/strerror.cc',
   'absl/base/internal/sysinfo.cc',
   'absl/base/internal/thread_identity.cc',
-  'absl/base/internal/throw_delegate.cc',
+  'absl/base/internal/tracing.cc',
   'absl/base/internal/unscaledcycleclock.cc',
   'absl/base/log_severity.cc',
+  'absl/base/throw_delegate.cc',
 )
 absl_base_headers = files(
   'absl/base/attributes.h',
@@ -113,7 +114,6 @@ absl_base_headers = files(
   'absl/base/internal/exception_safety_testing.h',
   'absl/base/internal/exception_testing.h',
   'absl/base/internal/hide_ptr.h',
-  'absl/base/internal/identity.h',
   'absl/base/internal/low_level_alloc.h',
   'absl/base/internal/low_level_scheduling.h',
   'absl/base/internal/per_thread_tls.h',
@@ -131,7 +131,7 @@ absl_base_headers = files(
   'absl/base/internal/strerror.h',
   'absl/base/internal/sysinfo.h',
   'absl/base/internal/thread_identity.h',
-  'absl/base/internal/throw_delegate.h',
+  'absl/base/internal/tracing.h',
   'absl/base/internal/tsan_mutex_interface.h',
   'absl/base/internal/unaligned_access.h',
   'absl/base/internal/unscaledcycleclock.h',
@@ -145,6 +145,7 @@ absl_base_headers = files(
   'absl/base/policy_checks.h',
   'absl/base/port.h',
   'absl/base/thread_annotations.h',
+  'absl/base/throw_delegate.h',
   'absl/functional/any_invocable.h',
   'absl/functional/internal/any_invocable.h',
   'absl/memory/memory.h',
@@ -401,6 +402,7 @@ absl_random_sources = files(
   'absl/random/discrete_distribution.cc',
   'absl/random/gaussian_distribution.cc',
   'absl/random/internal/chi_square.cc',
+  'absl/random/internal/distribution_test_util.cc',
   'absl/random/internal/entropy_pool.cc',
   'absl/random/internal/randen.cc',
   'absl/random/internal/randen_detect.cc',
@@ -448,6 +450,7 @@ absl_random_headers = files(
   'absl/random/internal/wide_multiply.h',
   'absl/random/log_uniform_int_distribution.h',
   'absl/random/mock_distributions.h',
+  'absl/random/mocking_access.h',
   'absl/random/mocking_bit_gen.h',
   'absl/random/poisson_distribution.h',
   'absl/random/random.h',
@@ -508,7 +511,6 @@ absl_strings_sources = files(
   'absl/strings/str_cat.cc',
   'absl/strings/str_replace.cc',
   'absl/strings/str_split.cc',
-  'absl/strings/string_view.cc',
   'absl/strings/substitute.cc',
 )
 absl_strings_headers = files(
@@ -883,3 +885,154 @@ absl_status_dep = declare_dependency(
   link_with: absl_status_lib,
   dependencies: [absl_base_dep, absl_strings_dep],
 )
+
+foreach name : [
+  'absl_base',
+  'absl_algorithm_container',
+  'absl_any_invocable',
+  'absl_bind_front',
+  'absl_cleanup',
+  'absl_core_headers',
+  'absl_function_ref',
+  'absl_log_severity',
+  'absl_memory',
+  'absl_raw_logging_internal',
+  'absl_scoped_set_env',
+  'absl_spinlock_wait',
+  'absl_strerror',
+  'absl_throw_delegate',
+  'absl_type_traits',
+  'absl_utility',
+]
+  meson.override_dependency(name, absl_base_dep)
+endforeach
+
+foreach name : [
+  'absl_container',
+  'absl_flat_hash_map',
+  'absl_flat_hash_set',
+  'absl_hashtablez_sampler',
+  'absl_inlined_vector',
+  'absl_raw_hash_set',
+]
+  meson.override_dependency(name, absl_container_dep)
+endforeach
+
+foreach name : [
+  'absl_debugging',
+  'absl_debugging_internal',
+  'absl_demangle_internal',
+  'absl_examine_stack',
+  'absl_failure_signal_handler',
+  'absl_leak_check',
+  'absl_stacktrace',
+  'absl_symbolize',
+]
+  meson.override_dependency(name, absl_debugging_dep)
+endforeach
+
+foreach name : [
+  'absl_log',
+  'absl_die_if_null',
+  'absl_log_initialize',
+  'absl_log_internal_check_op',
+  'absl_log_internal_message',
+]
+  meson.override_dependency(name, absl_log_dep)
+endforeach
+
+foreach name : [
+  'absl_flags',
+  'absl_flags_commandlineflag',
+  'absl_flags_commandlineflag_internal',
+  'absl_flags_config',
+  'absl_flags_internal',
+  'absl_flags_marshalling',
+  'absl_flags_parse',
+  'absl_flags_private_handle_accessor',
+  'absl_flags_program_name',
+  'absl_flags_reflection',
+  'absl_flags_usage',
+  'absl_flags_usage_internal',
+]
+  meson.override_dependency(name, absl_flags_dep)
+endforeach
+
+foreach name : ['absl_hash', 'absl_city', 'absl_low_level_hash']
+  meson.override_dependency(name, absl_hash_dep)
+endforeach
+
+foreach name : ['absl_crc', 'absl_crc32c']
+  meson.override_dependency(name, absl_crc_dep)
+endforeach
+
+foreach name : ['absl_numeric', 'absl_int128']
+  meson.override_dependency(name, absl_numeric_dep)
+endforeach
+
+foreach name : [
+  'absl_profiling',
+  'absl_exponential_biased',
+  'absl_periodic_sampler',
+]
+  meson.override_dependency(name, absl_profiling_dep)
+endforeach
+
+foreach name : [
+  'absl_random',
+  'absl_random_bit_gen_ref',
+  'absl_random_distributions',
+  'absl_random_internal_distribution_test_util',
+  'absl_random_internal_platform',
+  'absl_random_internal_pool_urbg',
+  'absl_random_internal_randen',
+  'absl_random_internal_randen_hwaes',
+  'absl_random_internal_randen_hwaes_impl',
+  'absl_random_internal_randen_slow',
+  'absl_random_internal_seed_material',
+  'absl_random_random',
+  'absl_random_seed_gen_exception',
+  'absl_random_seed_sequences',
+]
+  meson.override_dependency(name, absl_random_dep)
+endforeach
+
+foreach name : ['absl_status', 'absl_statusor']
+  meson.override_dependency(name, absl_status_dep)
+endforeach
+
+foreach name : [
+  'absl_strings',
+  'absl_cord',
+  'absl_cord_internal',
+  'absl_cordz_functions',
+  'absl_cordz_handle',
+  'absl_cordz_info',
+  'absl_cordz_sample_token',
+  'absl_str_format',
+  'absl_str_format_internal',
+  'absl_string_view',
+  'absl_strings_internal',
+]
+  meson.override_dependency(name, absl_strings_dep)
+endforeach
+
+foreach name : ['absl_synchronization', 'absl_graphcycles_internal']
+  meson.override_dependency(name, absl_synchronization_dep)
+endforeach
+
+foreach name : ['absl_time', 'absl_civil_time', 'absl_time_zone']
+  meson.override_dependency(name, absl_time_dep)
+endforeach
+
+foreach name : [
+  'absl_types',
+  'absl_bad_any_cast_impl',
+  'absl_bad_optional_access',
+  'absl_bad_variant_access',
+  'absl_optional',
+  'absl_span',
+  'absl_variant',
+]
+  meson.override_dependency(name, absl_types_dep)
+endforeach

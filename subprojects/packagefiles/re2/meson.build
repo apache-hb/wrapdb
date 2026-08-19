@@ -2,6 +2,7 @@ project(
   're2',
   'cpp',
   version: '20230301',
+  meson_version: '>=0.56.0',
   license: 'BSD-3-Clause',
   default_options: ['cpp_std=c++14'],
 )
@@ -117,6 +118,14 @@ re2_dep = declare_dependency(
   link_with: libre2,
   include_directories: includes,
 )
+re2_internal_dep = declare_dependency(
+  link_with: libre2_static,
+  include_directories: includes,
+  dependencies: threads_dep,
+)
+
+meson.override_dependency('re2', re2_dep)
+meson.override_dependency('re2_internal', re2_internal_dep)
 
 re2testing_sources = files(
   're2/testing/backtrack.cc',

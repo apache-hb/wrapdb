@@ -6,4 +6,4 @@ source_hash = 7a9a4824958586980926a300b4717202485c4b4115ac031822e29aa4ef207e48
 patch_directory = re2
 
 [provide]
-re2 = re2_dep
+dependency_names = re2, re2_internal

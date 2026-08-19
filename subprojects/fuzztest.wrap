@@ -1,0 +1,10 @@
+[wrap-file]
+directory = fuzztest-2026-06-29
+source_url = https://github.com/google/fuzztest/archive/refs/tags/2026-06-29.tar.gz
+source_filename = fuzztest-2026-06-29.tar.gz
+source_hash = f012eb72e85f0601e51495bcb1c9e9d14b92982f58e4643cfc08a534c4eca7a2
+patch_directory = fuzztest
+
+[provide]
+dependency_names = centipede, centipede_runner, centipede_runner_no_main, fuzztest, fuzztest_gtest_main, fuzztest_llvm_fuzzer_main, fuzztest_llvm_fuzzer_wrapper
+program_names = blob_file_converter, centipede, grammar_domain_code_generator, seed_corpus_maker
